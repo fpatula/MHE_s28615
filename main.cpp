@@ -5,10 +5,11 @@
 
 using namespace std;
 
-long colorsLimit;
+long lastColor;
+
 
 vector<vector<bool>> readMatrix(ifstream &f) {
-    vector<vector<bool> > graph_matrix;
+    vector<vector<bool>> graph_matrix;
     string line;
     string token;
 
@@ -29,65 +30,6 @@ long getUniqueColorsNumber(const vector<int> &colors) {
     return uniqueColors.size();
 }
 
-long loss(const vector<vector<bool>> &graph_matrix, const vector<int>& colors, const long numberOfUniqueColors) {
-    long loss = 0;
-    long errorWeight = numberOfUniqueColors;
-    loss += numberOfUniqueColors;
-    for (int i = 0; i < colors.size(); i++) {
-        const auto& adjacencyRow = graph_matrix[i];
-        for (int j = 0; j < adjacencyRow.size(); j++) {
-            if (adjacencyRow[j] && colors[i] == colors[j]) {
-                loss += ++errorWeight;
-            }
-        }
-    }
-    return loss;
-}
-
-vector<int> generateRandomSolution(vector<int> colors) {
-    for (int & color : colors) {
-        random_device generator;
-        uniform_int_distribution<> distribution(0, colorsLimit);
-        color = distribution(generator);
-    }
-    return colors;
-}
-
-vector<vector<int>> findNeighbours(const vector<int>& colors) {
-    auto neighbours = vector(colors.size(), vector(colors));
-    for (int i = 0; i < neighbours.size(); i++) {
-        auto neighbour = neighbours[i];
-        if (neighbour[i] != 0) {
-            neighbour[i]--;
-            neighbours.push_back(neighbour);
-        }
-        neighbours[i][i]++;
-    }
-    return neighbours;
-}
-
-vector<int> findSolutionRecursive(const vector<vector<bool>> &graph_matrix, vector<int> &colors) {
-    const size_t colorsSize = colors.size();
-    for (int i = 0; i <= colorsSize; i++) {
-        if (colors[i]+1 == colorsLimit) {
-            return colors;
-        }
-        vector<int> newColors = colors;
-        newColors[i]++;
-        long uniqueColorsNumber = getUniqueColorsNumber(newColors);
-        if (loss(graph_matrix, newColors, uniqueColorsNumber) == uniqueColorsNumber) {
-            return newColors;
-        }
-        findSolutionRecursive(graph_matrix, newColors);
-    }
-    return colors;
-}
-
-vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graph_matrix) {
-    vector colors(graph_matrix.size(), 0);
-    return findSolutionRecursive(graph_matrix, colors);
-}
-
 void printGraphMatrix(const vector<vector<bool>>& graph_matrix) {
     for (auto & i : graph_matrix) {
         cout<<"|";
@@ -106,21 +48,90 @@ void printColors(const vector<int>& colors) {
     cout<<endl;
 }
 
-long getColorsLimit(const vector<vector<bool>>& graph_matrix) {
-    int globalMaxColors = 1;
+long getLastColor(const vector<vector<bool>>& graph_matrix) {
+    int globalLastColor = 0;
     for (auto & adjacencyRow : graph_matrix) {
-        int maxColors = 1;
+        int maxColors = 0;
         for (const bool isAdjacent : adjacencyRow) {
             if (isAdjacent) {
                 maxColors++;
             }
         }
-        if (maxColors > globalMaxColors) {
-            globalMaxColors = maxColors;
+        if (maxColors > globalLastColor) {
+            globalLastColor = maxColors;
         }
     }
-    return globalMaxColors+1;
+    return globalLastColor;
 }
+
+long loss(const vector<vector<bool>> &graph_matrix, const vector<int>& colors, const long numberOfUniqueColors) {
+    long loss = 0;
+    long errorWeight = numberOfUniqueColors;
+    loss += numberOfUniqueColors;
+    for (int i = 0; i < colors.size(); i++) {
+        const auto& adjacencyRow = graph_matrix[i];
+        for (int j = 0; j < adjacencyRow.size(); j++) {
+            if (adjacencyRow[j] && colors[i] == colors[j]) {
+                loss += ++errorWeight;
+            }
+        }
+    }
+    return loss;
+}
+
+vector<int> generateRandomSolution(vector<int> colors) {
+    for (int & color : colors) {
+        random_device generator;
+        uniform_int_distribution<> distribution(0, lastColor);
+        color = distribution(generator);
+    }
+    return colors;
+}
+
+vector<vector<int>> findNeighbours(const vector<int>& colors) {
+    auto neighbours = vector(colors.size(), vector(colors));
+    const long initialSize = neighbours.size();
+    for (int i = 0; i < initialSize; i++) {
+        vector<int>& vector = neighbours[i];
+        if (vector[i] != lastColor && vector[i]!=0) {
+            auto neighbour = vector;
+            vector[i]++;
+            neighbour[i]--;
+            neighbours.push_back(neighbour);
+        }
+        else if (vector[i] == 0) {
+            vector[i]++;
+        }
+        else {
+            vector[i]--;
+        }
+    }
+    return neighbours;
+}
+
+vector<int> findSolutionRecursive(const vector<vector<bool>> &graph_matrix, vector<int> &colors) {
+    const size_t colorsSize = colors.size();
+    for (int i = 0; i <= colorsSize; i++) {
+        if (colors[i] == lastColor) {
+            return colors;
+        }
+        vector<int> newColors = colors;
+        newColors[i]++;
+        long uniqueColorsNumber = getUniqueColorsNumber(newColors);
+        printColors(newColors);
+        if (loss(graph_matrix, newColors, uniqueColorsNumber) == uniqueColorsNumber) {
+            return newColors;
+        }
+        findSolutionRecursive(graph_matrix, newColors);
+    }
+    return colors;
+}
+
+vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graph_matrix) {
+    vector colors(graph_matrix.size(), 0);
+    return findSolutionRecursive(graph_matrix, colors);
+}
+
 
 int main(const int argc, char *argv[]) {
     if (argc < 3) {
@@ -135,11 +146,12 @@ int main(const int argc, char *argv[]) {
     }
 
     const vector<vector<bool>> graph_matrix = readMatrix(f);
-    auto colors = vector(graph_matrix.size(), 0);
-    colorsLimit = getColorsLimit(graph_matrix);
+    auto colors = vector(graph_matrix.size(), 1);
+    lastColor = getLastColor(graph_matrix);
 
     printGraphMatrix(graph_matrix);
-    printColors(colors);
+
+    //fullSearchAlgorithm(graph_matrix);
 
     return 0;
 }
