@@ -7,6 +7,27 @@ using namespace std;
 
 long lastColor;
 
+int mod(const int number, const int divisor) {
+    const int reminder = number%divisor;
+    return reminder<0 ? reminder+divisor : reminder;
+}
+
+long getLastColor(const vector<vector<bool>>& graph_matrix) {
+    int globalLastColor = 0;
+    for (auto & adjacencyRow : graph_matrix) {
+        int maxColors = 0;
+        for (const bool isAdjacent : adjacencyRow) {
+            if (isAdjacent) {
+                maxColors++;
+            }
+        }
+        if (maxColors > globalLastColor) {
+            globalLastColor = maxColors;
+        }
+    }
+    return globalLastColor;
+}
+
 vector<vector<bool>> readMatrix(ifstream &f) {
     vector<vector<bool>> graph_matrix;
     string line;
@@ -21,6 +42,7 @@ vector<vector<bool>> readMatrix(ifstream &f) {
         }
         graph_matrix.push_back(matrix_row);
     }
+    lastColor = getLastColor(graph_matrix);
     return graph_matrix;
 }
 
@@ -45,22 +67,6 @@ void printColors(const vector<int>& colors) {
         cout<<color<<"|";
     }
     cout<<endl;
-}
-
-long getLastColor(const vector<vector<bool>>& graph_matrix) {
-    int globalLastColor = 0;
-    for (auto & adjacencyRow : graph_matrix) {
-        int maxColors = 0;
-        for (const bool isAdjacent : adjacencyRow) {
-            if (isAdjacent) {
-                maxColors++;
-            }
-        }
-        if (maxColors > globalLastColor) {
-            globalLastColor = maxColors;
-        }
-    }
-    return globalLastColor;
 }
 
 long loss(const vector<vector<bool>> &graph_matrix, const vector<int>& colors) {
@@ -89,51 +95,53 @@ vector<int> generateRandomSolution(vector<int> colors) {
 }
 
 vector<vector<int>> findNeighbours(const vector<int>& colors) {
-    auto neighbours = vector(colors.size(), vector(colors));
-    const long initialSize = neighbours.size();
-    for (int i = 0; i < initialSize; i++) {
-        vector<int>& vector = neighbours[i];
-        if (vector[i] != lastColor && vector[i]!=0) {
-            auto neighbour = vector;
-            vector[i]++;
-            neighbour[i]--;
-            neighbours.push_back(neighbour);
-        }
-        else if (vector[i] == 0) {
-            vector[i]++;
-        }
-        else {
-            vector[i]--;
-        }
+    const long size = colors.size();
+    const int divisor = lastColor + 1;
+    auto neighbours = vector(size*2 , vector(colors));
+    for (int i = 0; i < size; i++) {
+        const int secondIndex = i+size;
+        neighbours[i][i]=mod(neighbours[i][i]+1, divisor);
+        neighbours[secondIndex][i]=mod(neighbours[secondIndex][i]-1, divisor);
     }
     return neighbours;
 }
 
-vector<int> findSolutionRecursive(const vector<vector<bool>> &graph_matrix, const vector<int> &colors, vector<int> &solution, bool &stop, const int index) {
-    if (stop || index == colors.size()) {
-        return solution;
-    }
-    for (int i = 1; i <= lastColor; i++) {
-        vector<int> newColors = colors;
-        newColors[index]=i;
-        long uniqueColorsNumber = getUniqueColorsNumber(newColors);
-        if (loss(graph_matrix, newColors) == uniqueColorsNumber) {
-            stop = true;
-            solution = newColors;
-            return solution;
+vector<int> findSolution(const vector<vector<bool>> &graph_matrix, const vector<int> &initialColors) {
+    auto currentSolution = initialColors;
+    auto globalBestSolution = currentSolution;
+    long globalBestLoss = loss(graph_matrix, globalBestSolution);
+    const int size = initialColors.size();
+    const int maxHop = size - 1;
+    int hop = 0;
+    int currentIndex = 0;
+    while (hop != maxHop) {
+        if (currentSolution[currentIndex] == lastColor) {
+            if (const int nextIndex = currentIndex+1; nextIndex != size && currentSolution[nextIndex] == lastColor) {
+                currentSolution[currentIndex] = 0;
+                currentIndex = nextIndex;
+                hop++;
+            }
+            else if (nextIndex != size) {
+                currentSolution[currentIndex] = 0;
+                currentSolution[nextIndex]++;
+                currentIndex = 0;
+                hop=0;
+            }
+        } else {
+            currentSolution[currentIndex]++;
         }
-        findSolutionRecursive(graph_matrix, newColors, solution, stop, index+1);
+        if (const long currentLoss = loss(graph_matrix, currentSolution); globalBestLoss > currentLoss) {
+            globalBestSolution = currentSolution;
+            globalBestLoss = currentLoss;
+        }
     }
-    return solution;
+    return globalBestSolution;
 }
 
 vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graph_matrix) {
-    vector colors(graph_matrix.size(), 0);
-    vector solution(graph_matrix.size(), 0);
-    bool stop = false;
-    return findSolutionRecursive(graph_matrix, colors, solution, stop, 0);
+    const vector colors(graph_matrix.size(), 0);
+    return findSolution(graph_matrix, colors);
 }
-
 
 int main(const int argc, char *argv[]) {
     if (argc < 3) {
@@ -148,13 +156,9 @@ int main(const int argc, char *argv[]) {
     }
 
     const vector<vector<bool>> graph_matrix = readMatrix(f);
-    auto colors = vector(graph_matrix.size(), 0);
-    lastColor = getLastColor(graph_matrix);
-
-    auto neighbours = findNeighbours(colors);
-    for (auto neighbour : neighbours) {
-        printColors(neighbour);
-    }
-
+    const auto colors = vector(graph_matrix.size(), 0);
+    const auto solution = fullSearchAlgorithm(graph_matrix);
+    printColors(solution);
+    cout<<"Number of unique colors: "<<getUniqueColorsNumber(solution)<<endl;
     return 0;
 }
