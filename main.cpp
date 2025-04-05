@@ -7,14 +7,23 @@ using namespace std;
 
 long lastColor;
 
+enum ALGORITHMS {
+    FULL_SEARCH,
+    HILL_CLIMBING,
+    HILL_CLIMBING_STOCHASTIC,
+    TABU
+};
+
+unordered_map<string,ALGORITHMS> const algorithmsMap = { {"full_search",FULL_SEARCH}, {"hill_climbing", HILL_CLIMBING}, {"hill_climbing_stochastic", HILL_CLIMBING_STOCHASTIC}, {"tabu", TABU}};
+
 int mod(const int number, const int divisor) {
     const int reminder = number%divisor;
     return reminder<0 ? reminder+divisor : reminder;
 }
 
-long getLastColor(const vector<vector<bool>>& graph_matrix) {
+long getLastColor(const vector<vector<bool>>& graphMatrix) {
     int globalLastColor = 0;
-    for (auto & adjacencyRow : graph_matrix) {
+    for (auto & adjacencyRow : graphMatrix) {
         int maxColors = 0;
         for (const bool isAdjacent : adjacencyRow) {
             if (isAdjacent) {
@@ -29,7 +38,7 @@ long getLastColor(const vector<vector<bool>>& graph_matrix) {
 }
 
 vector<vector<bool>> readMatrix(ifstream &f) {
-    vector<vector<bool>> graph_matrix;
+    vector<vector<bool>> graphMatrix;
     string line;
     string token;
 
@@ -40,10 +49,10 @@ vector<vector<bool>> readMatrix(ifstream &f) {
         while (getline(lineStream, token, delimiter)) {
             matrix_row.push_back(atoi(token.c_str()));
         }
-        graph_matrix.push_back(matrix_row);
+        graphMatrix.push_back(matrix_row);
     }
-    lastColor = getLastColor(graph_matrix);
-    return graph_matrix;
+    lastColor = getLastColor(graphMatrix);
+    return graphMatrix;
 }
 
 long getUniqueColorsNumber(const vector<int> &colors) {
@@ -51,8 +60,8 @@ long getUniqueColorsNumber(const vector<int> &colors) {
     return uniqueColors.size();
 }
 
-void printGraphMatrix(const vector<vector<bool>>& graph_matrix) {
-    for (auto & i : graph_matrix) {
+void printGraphMatrix(const vector<vector<bool>>& graphMatrix) {
+    for (auto & i : graphMatrix) {
         cout<<"|";
         for (const bool j : i) {
             cout<<j<<"|";
@@ -69,13 +78,13 @@ void printColors(const vector<int>& colors) {
     cout<<endl;
 }
 
-long loss(const vector<vector<bool>> &graph_matrix, const vector<int>& colors) {
+long loss(const vector<vector<bool>> &graphMatrix, const vector<int>& colors) {
     long loss = 0;
     const long numberOfUniqueColors = getUniqueColorsNumber(colors);
     long errorWeight = numberOfUniqueColors;
     loss += numberOfUniqueColors;
     for (int i = 0; i < colors.size(); i++) {
-        const auto& adjacencyRow = graph_matrix[i];
+        const auto& adjacencyRow = graphMatrix[i];
         for (int j = 0; j < adjacencyRow.size(); j++) {
             if (adjacencyRow[j] && colors[i] == colors[j]) {
                 loss += ++errorWeight;
@@ -106,12 +115,12 @@ vector<vector<int>> findNeighbours(const vector<int>& colors) {
     return neighbours;
 }
 
-vector<int> findSolution(const vector<vector<bool>> &graph_matrix, const vector<int> &initialColors) {
+vector<int> findSolution(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors) {
     auto currentSolution = initialColors;
     auto globalBestSolution = currentSolution;
-    long globalBestLoss = loss(graph_matrix, globalBestSolution);
-    const int size = initialColors.size();
-    const int maxHop = size - 1;
+    long globalBestLoss = loss(graphMatrix, globalBestSolution);
+    const long size = initialColors.size();
+    const long maxHop = size - 1;
     int hop = 0;
     int currentIndex = 0;
     while (hop != maxHop) {
@@ -130,7 +139,7 @@ vector<int> findSolution(const vector<vector<bool>> &graph_matrix, const vector<
         } else {
             currentSolution[currentIndex]++;
         }
-        if (const long currentLoss = loss(graph_matrix, currentSolution); globalBestLoss > currentLoss) {
+        if (const long currentLoss = loss(graphMatrix, currentSolution); globalBestLoss > currentLoss) {
             globalBestSolution = currentSolution;
             globalBestLoss = currentLoss;
         }
@@ -138,9 +147,52 @@ vector<int> findSolution(const vector<vector<bool>> &graph_matrix, const vector<
     return globalBestSolution;
 }
 
-vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graph_matrix) {
-    const vector colors(graph_matrix.size(), 0);
-    return findSolution(graph_matrix, colors);
+vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graphMatrix) {
+    const vector colors(graphMatrix.size(), 0);
+    return findSolution(graphMatrix, colors);
+}
+
+vector<int> hillClimbingAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations) {
+    vector<int> globalBestSolution = initialColors;
+    long globalBestLoss = loss(graphMatrix, initialColors);
+    bool foundBestSolution = false;
+    for (int i = 0; i < maxIterations || foundBestSolution; i++) {
+        vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
+        vector<int> bestNeighbour = neighbours[0];
+        long bestNeighbourLoss = loss(graphMatrix, bestNeighbour);
+        const long numberOfNeighbours = neighbours.size();
+        for (int j = 1; j < numberOfNeighbours; j++) {
+            const auto& neighbour = neighbours[j];
+            if (const long neighbourLoss = loss(graphMatrix, neighbour); bestNeighbourLoss > neighbourLoss) {
+                bestNeighbour = neighbour;
+                bestNeighbourLoss = neighbourLoss;
+            }
+        }
+        if (bestNeighbourLoss < globalBestLoss) {
+            globalBestSolution = bestNeighbour;
+            globalBestLoss = bestNeighbourLoss;
+        }
+        else {
+            foundBestSolution = true;
+        }
+    }
+    return globalBestSolution;
+}
+
+vector<int> hillClimbingStochasticAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations) {
+    vector<int> globalBestSolution = generateRandomSolution(initialColors);
+    long globalBestLoss = loss(graphMatrix, initialColors);
+    random_device generator;
+    for (int i = 0; i < maxIterations; i++) {
+        vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
+        uniform_int_distribution<> distribution(0, neighbours.size()-1);
+        const vector<int>& selectedNeighbour = neighbours[distribution(generator)];
+        if (const long selectedNeighbourLoss = loss(graphMatrix, selectedNeighbour); selectedNeighbourLoss < globalBestLoss) {
+            globalBestSolution = selectedNeighbour;
+            globalBestLoss = selectedNeighbourLoss;
+        }
+    }
+    return globalBestSolution;
 }
 
 int main(const int argc, char *argv[]) {
@@ -148,16 +200,42 @@ int main(const int argc, char *argv[]) {
         cerr << "You must provide algorithm data file name and algorithm name";
         return -1;
     }
-    cout<<"File path: "<<argv[1]<<endl<<"Algorithm name: "<<argv[2]<<endl;
-    ifstream f(argv[1]);
+    const auto filePath = argv[1];
+    const auto algorithmName = argv[2];
+    const auto maxIterations = atoi(argv[3]);
+    cout<<"File path: "<<filePath<<endl<<"Algorithm name: "<<algorithmName<<endl;
+    ifstream f(filePath);
     if (!f.is_open()) {
         cerr << "Failed opening algorithm data file";
         return -1;
     }
 
-    const vector<vector<bool>> graph_matrix = readMatrix(f);
-    const auto colors = vector(graph_matrix.size(), 0);
-    const auto solution = fullSearchAlgorithm(graph_matrix);
+    const vector<vector<bool>> graphMatrix = readMatrix(f);
+    const auto colors = vector(graphMatrix.size(), 0);
+
+    vector<int> solution;
+
+    switch (algorithmsMap.at(algorithmName)) {
+        case FULL_SEARCH:
+            solution = fullSearchAlgorithm(graphMatrix);
+            break;
+
+        case HILL_CLIMBING:
+            solution = hillClimbingAlgorithm(graphMatrix, colors, maxIterations);
+            break;
+
+        case HILL_CLIMBING_STOCHASTIC:
+            solution = hillClimbingStochasticAlgorithm(graphMatrix, colors, maxIterations);
+            break;
+
+        case TABU:
+            solution = fullSearchAlgorithm(graphMatrix);
+            break;
+
+        default:
+            cerr<<"Unknown algorithm name"<<endl;
+    }
+    cout<<"Found best solution: "<<endl;
     printColors(solution);
     cout<<"Number of unique colors: "<<getUniqueColorsNumber(solution)<<endl;
     return 0;
