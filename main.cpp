@@ -3,6 +3,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include <chrono>
+#include <cmath>
 
 using namespace std;
 
@@ -12,14 +13,15 @@ enum ALGORITHMS {
     FULL_SEARCH,
     HILL_CLIMBING,
     HILL_CLIMBING_STOCHASTIC,
-    TABU
+    TABU,
+    SIMULATED_ANNEALING
 };
 
-unordered_map<string,ALGORITHMS> const algorithmsMap = { {"full_search",FULL_SEARCH}, {"hill_climbing", HILL_CLIMBING}, {"hill_climbing_stochastic", HILL_CLIMBING_STOCHASTIC}, {"tabu", TABU}};
+unordered_map<string,ALGORITHMS> const algorithmsMap = { {"full_search",FULL_SEARCH}, {"hill_climbing", HILL_CLIMBING}, {"hill_climbing_stochastic", HILL_CLIMBING_STOCHASTIC}, {"tabu", TABU}, {"simulated_annealing",SIMULATED_ANNEALING}};
 
 int mod(const int number, const int divisor) {
-    const int reminder = number%divisor;
-    return reminder<0 ? reminder+divisor : reminder;
+    const int reminder = number % divisor;
+    return reminder < 0 ? reminder + divisor : reminder;
 }
 
 long getLastColor(const vector<vector<bool>>& graphMatrix) {
@@ -135,7 +137,7 @@ vector<int> findSolution(const vector<vector<bool>> &graphMatrix, const vector<i
                 currentSolution[currentIndex] = 0;
                 currentSolution[nextIndex]++;
                 currentIndex = 0;
-                hop=0;
+                hop = 0;
             }
         } else {
             currentSolution[currentIndex]++;
@@ -186,7 +188,7 @@ vector<int> hillClimbingStochasticAlgorithm(const vector<vector<bool>> &graphMat
     random_device generator;
     for (int i = 0; i < maxIterations; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
-        uniform_int_distribution<> distribution(0, neighbours.size()-1);
+        uniform_int_distribution<> distribution(0, neighbours.size() - 1);
         const vector<int>& selectedNeighbour = neighbours[distribution(generator)];
         if (const long selectedNeighbourLoss = loss(graphMatrix, selectedNeighbour); selectedNeighbourLoss <= globalBestLoss) {
             globalBestSolution = selectedNeighbour;
@@ -255,6 +257,54 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
     return globalBestSolution;
 }
 
+double standardTemperature(const int k) {
+    return 100.0/k;
+}
+
+double logTemperature(const int k) {
+    return 100.0/log(k);
+}
+
+vector<int> simulatedAnnealingAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, double (*temperature)(int k)) {
+    vector<int> globalBestSolution = generateRandomSolution(initialColors);
+    long globalBestLoss = loss(graphMatrix, globalBestSolution);
+    vector<vector<int>> chosenSolutions{globalBestSolution};
+    chosenSolutions.reserve(maxIterations);
+    random_device generator;
+    uniform_real_distribution<> realDistribution(0.0, 1.0);
+    for (int i = 0; i < maxIterations; i++) {
+        vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
+        uniform_int_distribution<> intDistribution(0, neighbours.size()-1);
+        const vector<int>& selectedNeighbour = neighbours[intDistribution(generator)];
+        if (const long selectedNeighbourLoss = loss(graphMatrix, selectedNeighbour);
+            selectedNeighbourLoss <= globalBestLoss) {
+            globalBestSolution = selectedNeighbour;
+            globalBestLoss = selectedNeighbourLoss;
+        }
+        else {
+            if (const double probability = realDistribution(generator);
+                probability < exp((globalBestLoss-selectedNeighbourLoss)/temperature(i))) {
+                globalBestSolution = selectedNeighbour;
+                globalBestLoss = selectedNeighbourLoss;
+            }
+        }
+        chosenSolutions.push_back(globalBestSolution);
+    }
+
+    const int chosenSolutionsSize = chosenSolutions.size();
+    vector<int> chosenSolution = chosenSolutions[0];
+    long chosenSolutionLoss = loss(graphMatrix, chosenSolution);
+    for (int i = 1; i < chosenSolutionsSize; i++) {
+        const auto& solution = chosenSolutions[i];
+        if (const long solutionLoss = loss(graphMatrix, solution); solutionLoss < chosenSolutionLoss) {
+            chosenSolution = solution;
+            chosenSolutionLoss = solutionLoss;
+        }
+    }
+
+    return chosenSolution;
+}
+
 int main(const int argc, char *argv[]) {
     if (argc < 3) {
         cerr << "You must provide algorithm data file name and algorithm name";
@@ -274,7 +324,7 @@ int main(const int argc, char *argv[]) {
     const auto colors = vector(graphMatrix.size(), 0);
 
     vector<int> solution;
-    const auto additionalArgument = atoi(argv[4]);
+    const auto additionalArgument = argv[4];
 
     const chrono::steady_clock::time_point start = chrono::steady_clock::now();
     switch (algorithmsMap.at(algorithmName)) {
@@ -291,7 +341,11 @@ int main(const int argc, char *argv[]) {
             break;
 
         case TABU:
-            solution = additionalArgument != 0 ? tabuAlgorithm(graphMatrix, colors, maxIterations, additionalArgument) : tabuAlgorithm(graphMatrix, colors, maxIterations);
+            solution = atoi(additionalArgument) != 0 ? tabuAlgorithm(graphMatrix, colors, maxIterations, atoi(additionalArgument)) : tabuAlgorithm(graphMatrix, colors, maxIterations);
+            break;
+
+        case SIMULATED_ANNEALING:
+            solution = additionalArgument == "log" ? simulatedAnnealingAlgorithm(graphMatrix, colors, maxIterations, logTemperature) : simulatedAnnealingAlgorithm(graphMatrix, colors, maxIterations, standardTemperature);
             break;
 
         default:
