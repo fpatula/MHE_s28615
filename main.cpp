@@ -196,7 +196,7 @@ vector<int> hillClimbingStochasticAlgorithm(const vector<vector<bool>> &graphMat
     return globalBestSolution;
 }
 
-vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, int tabuSize = 100) {
+vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, const int tabuSize = 100) {
     vector<int> globalBestSolution = initialColors;
     vector<vector<int>> previousGlobalBestSolutions{globalBestSolution};
     previousGlobalBestSolutions.reserve(maxIterations);
@@ -204,20 +204,19 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
     set tabuNeighbours{globalBestSolution};
     for (int i = 0; i < maxIterations; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
-        vector<int> bestNeighbour;
-        long bestNeighbourLoss = loss(graphMatrix, bestNeighbour);
         const long numberOfNeighbours = neighbours.size();
-        bool firstNeighbourFound = false;
-        for (int j = 0; j < numberOfNeighbours && !firstNeighbourFound; j++) {
+        vector<vector<int>> allowedNeighbours{};
+        allowedNeighbours.reserve(numberOfNeighbours);
+        for (int j = 0; j < numberOfNeighbours; j++) {
             if (const auto& neighbour = neighbours[j]; !tabuNeighbours.count(neighbour)) {
-                const long neighbourLoss = loss(graphMatrix, neighbour);
-                bestNeighbour = neighbour;
-                bestNeighbourLoss = neighbourLoss;
-                firstNeighbourFound = true;
+                allowedNeighbours.push_back(neighbour);
             }
         }
-        if (firstNeighbourFound) {
-            for (int j = 0; j < numberOfNeighbours; j++) {
+        if (!allowedNeighbours.empty()) {
+            vector<int> bestNeighbour = allowedNeighbours[0];
+            long bestNeighbourLoss = loss(graphMatrix, bestNeighbour);
+            const long numberOfAllowedNeighbours = allowedNeighbours.size();
+            for (int j = 1; j < numberOfAllowedNeighbours; j++) {
                 const auto& neighbour = neighbours[j];
                 if (const long neighbourLoss = loss(graphMatrix, neighbour); bestNeighbourLoss > neighbourLoss) {
                     bestNeighbour = neighbour;
