@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <bits/stdc++.h>
+#include <chrono>
 
 using namespace std;
 
@@ -154,9 +155,9 @@ vector<int> fullSearchAlgorithm(const vector<vector<bool>> &graphMatrix) {
 
 vector<int> hillClimbingAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations) {
     vector<int> globalBestSolution = initialColors;
-    long globalBestLoss = loss(graphMatrix, initialColors);
+    long globalBestLoss = loss(graphMatrix, globalBestSolution);
     bool foundBestSolution = false;
-    for (int i = 0; i < maxIterations || foundBestSolution; i++) {
+    for (int i = 0; i < maxIterations && !foundBestSolution; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
         vector<int> bestNeighbour = neighbours[0];
         long bestNeighbourLoss = loss(graphMatrix, bestNeighbour);
@@ -181,15 +182,75 @@ vector<int> hillClimbingAlgorithm(const vector<vector<bool>> &graphMatrix, const
 
 vector<int> hillClimbingStochasticAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations) {
     vector<int> globalBestSolution = generateRandomSolution(initialColors);
-    long globalBestLoss = loss(graphMatrix, initialColors);
+    long globalBestLoss = loss(graphMatrix, globalBestSolution);
     random_device generator;
     for (int i = 0; i < maxIterations; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
         uniform_int_distribution<> distribution(0, neighbours.size()-1);
         const vector<int>& selectedNeighbour = neighbours[distribution(generator)];
-        if (const long selectedNeighbourLoss = loss(graphMatrix, selectedNeighbour); selectedNeighbourLoss < globalBestLoss) {
+        if (const long selectedNeighbourLoss = loss(graphMatrix, selectedNeighbour); selectedNeighbourLoss <= globalBestLoss) {
             globalBestSolution = selectedNeighbour;
             globalBestLoss = selectedNeighbourLoss;
+        }
+    }
+    return globalBestSolution;
+}
+
+vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, int tabuSize = 100) {
+    vector<int> globalBestSolution = initialColors;
+    vector<vector<int>> previousGlobalBestSolutions{globalBestSolution};
+    previousGlobalBestSolutions.reserve(maxIterations);
+    long globalBestLoss = loss(graphMatrix, globalBestSolution);
+    set tabuNeighbours{globalBestSolution};
+    for (int i = 0; i < maxIterations; i++) {
+        vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
+        vector<int> bestNeighbour;
+        long bestNeighbourLoss = loss(graphMatrix, bestNeighbour);
+        const long numberOfNeighbours = neighbours.size();
+        bool firstNeighbourFound = false;
+        for (int j = 0; j < numberOfNeighbours && !firstNeighbourFound; j++) {
+            if (const auto& neighbour = neighbours[j]; !tabuNeighbours.count(neighbour)) {
+                const long neighbourLoss = loss(graphMatrix, neighbour);
+                bestNeighbour = neighbour;
+                bestNeighbourLoss = neighbourLoss;
+                firstNeighbourFound = true;
+            }
+        }
+        if (firstNeighbourFound) {
+            for (int j = 0; j < numberOfNeighbours; j++) {
+                const auto& neighbour = neighbours[j];
+                if (const long neighbourLoss = loss(graphMatrix, neighbour); bestNeighbourLoss > neighbourLoss) {
+                    bestNeighbour = neighbour;
+                    bestNeighbourLoss = neighbourLoss;
+                }
+            }
+            if (tabuNeighbours.size() == tabuSize) {
+                tabuNeighbours.erase(tabuNeighbours.begin());
+            }
+            tabuNeighbours.insert(bestNeighbour);
+            if (bestNeighbourLoss < globalBestLoss) {
+                previousGlobalBestSolutions.push_back(globalBestSolution);
+                globalBestSolution = bestNeighbour;
+                globalBestLoss = bestNeighbourLoss;
+            }
+            else {
+                if (tabuNeighbours.size() == tabuSize) {
+                    tabuNeighbours.erase(tabuNeighbours.begin());
+                }
+                tabuNeighbours.insert(globalBestSolution);
+                globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
+                globalBestLoss = loss(graphMatrix, globalBestSolution);
+                previousGlobalBestSolutions.pop_back();
+            }
+        }
+        else {
+            if (tabuNeighbours.size() == tabuSize) {
+                tabuNeighbours.erase(tabuNeighbours.begin());
+            }
+            tabuNeighbours.insert(globalBestSolution);
+            globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
+            globalBestLoss = loss(graphMatrix, globalBestSolution);
+            previousGlobalBestSolutions.pop_back();
         }
     }
     return globalBestSolution;
@@ -214,7 +275,9 @@ int main(const int argc, char *argv[]) {
     const auto colors = vector(graphMatrix.size(), 0);
 
     vector<int> solution;
+    const auto additionalArgument = atoi(argv[4]);
 
+    const chrono::steady_clock::time_point start = chrono::steady_clock::now();
     switch (algorithmsMap.at(algorithmName)) {
         case FULL_SEARCH:
             solution = fullSearchAlgorithm(graphMatrix);
@@ -229,14 +292,16 @@ int main(const int argc, char *argv[]) {
             break;
 
         case TABU:
-            solution = fullSearchAlgorithm(graphMatrix);
+            solution = additionalArgument != 0 ? tabuAlgorithm(graphMatrix, colors, maxIterations, additionalArgument) : tabuAlgorithm(graphMatrix, colors, maxIterations);
             break;
 
         default:
             cerr<<"Unknown algorithm name"<<endl;
     }
+    const chrono::steady_clock::time_point end = chrono::steady_clock::now();
     cout<<"Found best solution: "<<endl;
     printColors(solution);
     cout<<"Number of unique colors: "<<getUniqueColorsNumber(solution)<<endl;
+    cout<<"Execution time (ms): " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
     return 0;
 }

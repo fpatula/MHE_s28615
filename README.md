@@ -7,4 +7,4 @@ Dostępne algorytmy:
 - full_search
 - hill_climbing
 - hill_climbing_stochastic
-- tabu
+- tabu /<tabu size>
