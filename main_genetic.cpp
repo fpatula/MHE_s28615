@@ -8,7 +8,8 @@
 using namespace std;
 
 long lastColor;
-long maxPopulationSize = 64;
+long maxPopulationSize = 8;
+random_device generator;
 
 int mod(const int number, const int divisor) {
     const int reminder = number % divisor;
@@ -91,42 +92,17 @@ long fitness(const vector<vector<bool>> &graphMatrix, const vector<int>& colors)
     return fitness;
 }
 
-
-long calculatePopulationFitness(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
-    const long numberOfVertices = graphMatrix.size();
-    const long numberOfPoints = numberOfVertices * numberOfVertices;
-    long maxNumberOfUniqueColors = 0;
-    const long populationSize = population.size();
+vector<long> calculatePopulationFitness(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
+    auto populationFitness = vector<long>(graphMatrix.size());
+    const int populationSize = population.size();
     for (int i = 0; i < populationSize; i++) {
-        if (const long numberOfUniqueColors = getUniqueColorsNumber(population[i]); numberOfUniqueColors > maxNumberOfUniqueColors){
-            maxNumberOfUniqueColors = numberOfUniqueColors;
-        }
+        populationFitness[i] = fitness(graphMatrix, population[i]);
     }
-
-    const long baseFitness = maxNumberOfUniqueColors + numberOfPoints + maxNumberOfUniqueColors * numberOfPoints;
-    long populationFitness = 0;
-    for (int i = 0; i < population.size(); i++) {
-        const vector<int>& colors = population[i];
-        const long numberOfUniqueColors = getUniqueColorsNumber(colors);
-        long errorWeight = numberOfUniqueColors;
-        long fitness = baseFitness - numberOfUniqueColors;
-        for (int j = 0; j < colors.size(); j++) {
-            const auto& adjacencyRow = graphMatrix[i];
-            for (int k = 0; k < adjacencyRow.size(); k++) {
-                if (adjacencyRow[k] && colors[j] == colors[k]) {
-                    fitness -= ++errorWeight;
-                }
-            }
-        }
-        populationFitness += fitness > 0 ? fitness : 0;
-    }
-
-    return populationFitness / populationSize;
+    return populationFitness;
 }
 
 vector<int> generateRandomSolution(vector<int> colors) {
     for (int & color : colors) {
-        random_device generator;
         uniform_int_distribution<> distribution(0, lastColor);
         color = distribution(generator);
     }
@@ -134,7 +110,7 @@ vector<int> generateRandomSolution(vector<int> colors) {
 }
 
 vector<vector<int>> initializePopulation(const vector<int>& initialGenome){
-    vector<vector<int>> population = vector<vector<int>>(maxPopulationSize);
+    auto population = vector<vector<int>>(maxPopulationSize);
     for (int i = 0; i <= maxPopulationSize; i++) {
       population[i] = generateRandomSolution(initialGenome);
     }
@@ -143,11 +119,12 @@ vector<vector<int>> initializePopulation(const vector<int>& initialGenome){
 
 vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
     const long populationSize = population.size();
-    vector<vector<int>> selection = vector<vector<int>>(populationSize/2);
+    auto selection = vector<vector<int>>(populationSize);
+    uniform_int_distribution<> distribution(0, populationSize);
     int selectionIndex = 0;
-    for (int i = 0; i < populationSize; i+=2) {
-        vector<int> firstIndividual = population[i];
-        vector<int> secondIndividual = population[i+1];
+    for (int i = 0; i < populationSize; i++) {
+        vector<int> firstIndividual = population[distribution(generator)];
+        vector<int> secondIndividual = population[distribution(generator)];
         selection[selectionIndex++] = fitness(graphMatrix, firstIndividual) > fitness(graphMatrix, secondIndividual) ? firstIndividual : secondIndividual;
     }
     return selection;
@@ -164,8 +141,14 @@ bool isPopulationFitnessSatysfying(const vector<vector<bool>> &graphMatrix, cons
     const long numberOfColors = lastColor + 1;
 
     const long baseFitness = numberOfPoints + numberOfColors * numberOfPoints;
-    const long populationFitness = calculatePopulationFitness(graphMatrix, population);
-    return populationFitness >= baseFitness;
+    long bestPopulationFitness = 0;
+    const vector<long> populationFitness = calculatePopulationFitness(graphMatrix, population);
+    for (const auto fitness : populationFitness) {
+        if (bestPopulationFitness < fitness) {
+           bestPopulationFitness = fitness;
+        }
+    }
+    return bestPopulationFitness >= baseFitness;
 }
 
 vector<vector<int>> midCrossover(vector<vector<int>>& population){
@@ -187,7 +170,7 @@ vector<vector<int>> midCrossover(vector<vector<int>>& population){
     return offsprings;
 }
 
-vector<vector<int>> threePoinsCrossover(vector<vector<int>>& population){
+vector<vector<int>> threePointsCrossover(vector<vector<int>>& population){
     const long populationSize = population.size();
     const long genomeSize = population[0].size();
     vector<vector<int>> offsprings = vector<vector<int>>(populationSize);
@@ -244,13 +227,11 @@ vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
 vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialGenome, vector<vector<int>> (*crossover)(vector<vector<int>>& population), vector<vector<int>> (*mutation)(vector<vector<int>>& population), bool (*termCondition)(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population)) {
     int generation = 0;
     vector<vector<int>> population = initializePopulation(initialGenome);
-    cout<<"Population fitness: " << calculatePopulationFitness(graphMatrix, population)<<endl;
     while(!termCondition(graphMatrix, population)) {
       auto selection = tournamentSelection(graphMatrix, population);
       auto offsprings = crossover(selection);
       const auto mutatedOffsprings = mutation(offsprings);
       cout<<"Generation: "<<generation<<endl;
-      cout<<"Offsprings fitness: " << calculatePopulationFitness(graphMatrix, population)<<endl;
       population = mutatedOffsprings;
       generation++;
     }
