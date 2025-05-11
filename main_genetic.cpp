@@ -7,8 +7,32 @@
 
 using namespace std;
 
+enum MUTATION {
+    RANDOM_POINT,
+    ALL_POINTS
+};
+
+unordered_map<string,MUTATION> const mutationMap = { {"random_point",RANDOM_POINT}, {"all_points", ALL_POINTS}};
+
+enum CROSSOVER {
+    ONE_POINT,
+    RANDOM_POINTS
+};
+
+unordered_map<string,CROSSOVER> const crossoverMap = { {"one_point",ONE_POINT}, {"random_points", RANDOM_POINTS}};
+
+enum END_CONDITION {
+    LAST_GENERATION,
+    WELL_FIT
+};
+
+unordered_map<string,END_CONDITION> const conditionMap = { {"last_generation",LAST_GENERATION}, {"well_fit", WELL_FIT}};
+
+
 long lastColor;
 long maxPopulationSize = 8;
+long lastGeneration = 12;
+
 random_device generator;
 
 int mod(const int number, const int divisor) {
@@ -152,7 +176,7 @@ vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix,
 
 bool isLastGeneration(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
      static long generation = 1;
-     return generation++ == 10;
+     return generation++ == lastGeneration;
 }
 
 bool isPopulationFitnessSatysfying(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
@@ -218,7 +242,6 @@ vector<vector<int>> randomPointCrossover(const vector<vector<int>>& population){
 vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
     const long genotypeSize = offsprings[0].size();
     const int divisor = lastColor + 1;
-    random_device generator;
     uniform_real_distribution<> realDistribution(0, 1);
     uniform_int_distribution<> distribution(0, genotypeSize - 1);
     for (vector<int> & offspring : offsprings) {
@@ -233,7 +256,6 @@ vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
 vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
     const long genomeSize = offsprings[0].size();
     const int divisor = lastColor + 1;
-    random_device generator;
     uniform_real_distribution<> realDistribution(0, 1);
     for (vector<int> & offspring : offsprings) {
       for (int j = 0; j < genomeSize; j++) {
@@ -263,11 +285,15 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
 }
 
 int main(const int argc, char *argv[]) {
-    if (argc < 2) {
+    if (argc < 5) {
         cerr << "You must provide algorithm data file name and algorithm name";
         return -1;
     }
     const auto filePath = argv[1];
+    const auto conditionName = argv[2];
+    const auto crossoverName = argv[3];
+    const auto mutationName = argv[4];
+
     ifstream f(filePath);
     if (!f.is_open()) {
         cerr << "Failed opening algorithm data file";
@@ -275,8 +301,47 @@ int main(const int argc, char *argv[]) {
     }
     const vector<vector<bool>> graphMatrix = readMatrix(f);
     const auto colors = vector(graphMatrix.size(), 0);
+    bool (*endCondition)(const vector<vector<bool>> &, const vector<vector<int>>&) = &isLastGeneration;
+    switch (conditionMap.at(conditionName)) {
+        case LAST_GENERATION:
+            endCondition = &isLastGeneration;
+        break;
+        case WELL_FIT:
+            endCondition = &isPopulationFitnessSatysfying;
+        break;
 
-    vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, onePointCrossover, allPointsMutation, isLastGeneration);
+        default:
+            cerr<<"Unknown end condition name"<<endl;
+    }
+
+    vector<vector<int>>(*crossover)(const vector<vector<int>>&) = &randomPointCrossover;
+    switch (crossoverMap.at(crossoverName)) {
+        case ONE_POINT:
+            crossover = &onePointCrossover;
+        break;
+        case RANDOM_POINTS:
+            crossover = &randomPointCrossover;
+        break;
+
+        default:
+            cerr<<"Unknown crossover name"<<endl;
+    }
+
+    vector<vector<int>>(*mutation)(vector<vector<int>>& ) = &randomPointMutation;
+    switch (mutationMap.at(mutationName)) {
+        case RANDOM_POINT:
+            mutation = &randomPointMutation;
+        break;
+        case ALL_POINTS:
+            mutation = &allPointsMutation;
+        break;
+
+        default:
+            cerr<<"Unknown mutation name"<<endl;
+    }
+
+
+    vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, crossover, mutation, endCondition);
     int solutionUniqueColors = INT32_MAX;
     const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
