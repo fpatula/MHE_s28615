@@ -192,7 +192,7 @@ bool isLastGeneration(const vector<vector<bool>> &graphMatrix, const vector<vect
      return generation++ == lastGeneration;
 }
 
-bool isPopulationFitnessSatysfying(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
+bool isPopulationFitnessSatisfying(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
     const long numberOfVertices = graphMatrix.size();
     const long numberOfPoints = numberOfVertices * numberOfVertices;
     const long numberOfColors = lastColor + 1;
@@ -284,10 +284,10 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
     vector<vector<int>> population = elitePopulation(graphMatrix, initialGenotype);
     int generation = 1;
     while(!termCondition(graphMatrix, population)) {
-        cout<<"Generation: "<<generation<<endl;
+        /*cout<<"Generation: "<<generation<<endl;
         for(const auto& individual: population){
             printColors(individual);
-        }
+        }*/
       auto selection = tournamentSelection(graphMatrix, population);
       auto offsprings = crossover(selection);
       const auto mutatedOffsprings = mutation(offsprings);
@@ -298,7 +298,7 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
 }
 
 int main(const int argc, char *argv[]) {
-    if (argc < 5) {
+    if (argc < 6) {
         cerr << "You must provide algorithm data file name and algorithm name";
         return -1;
     }
@@ -306,6 +306,8 @@ int main(const int argc, char *argv[]) {
     const auto conditionName = argv[2];
     const auto crossoverName = argv[3];
     const auto mutationName = argv[4];
+
+    maxPopulationSize = atoi(argv[5]);
 
     ifstream f(filePath);
     if (!f.is_open()) {
@@ -320,7 +322,7 @@ int main(const int argc, char *argv[]) {
             endCondition = &isLastGeneration;
         break;
         case WELL_FIT:
-            endCondition = &isPopulationFitnessSatysfying;
+            endCondition = &isPopulationFitnessSatisfying;
         break;
 
         default:
