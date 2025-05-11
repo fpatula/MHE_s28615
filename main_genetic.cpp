@@ -109,22 +109,42 @@ vector<int> generateRandomSolution(vector<int> colors) {
     return colors;
 }
 
-vector<vector<int>> initializePopulation(const vector<int>& initialGenome){
+vector<vector<int>> initializePopulation(const vector<int>& initialGenotype){
     auto population = vector<vector<int>>(maxPopulationSize);
-    for (int i = 0; i <= maxPopulationSize; i++) {
-      population[i] = generateRandomSolution(initialGenome);
+    for (int i = 0; i < maxPopulationSize; i++) {
+      population[i] = generateRandomSolution(initialGenotype);
     }
     return population;
 }
 
+vector<vector<int>> elitePopulation(const vector<vector<bool>> &graphMatrix, const vector<int>& initialGenotype){
+    auto population = vector<vector<int>>(maxPopulationSize*2);
+    for (int i = 0; i < maxPopulationSize*2; i++) {
+        population[i] = generateRandomSolution(initialGenotype);
+    }
+    auto elitePopulation = vector<vector<int>>(maxPopulationSize);
+    sort(population.begin(), population.end(), [graphMatrix](const vector<int>& first, const vector<int>& second) {
+        return fitness(graphMatrix, first)>fitness(graphMatrix, second);
+    });
+    for (int i = 0; i < maxPopulationSize; i++) {
+        elitePopulation[i] = population[i];
+    }
+    return elitePopulation;
+}
+
 vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
-    const long populationSize = population.size();
+    const int populationSize = population.size();
+    const int firstGroupSize = populationSize/2;
+    const int secondGroupSize = populationSize%2 == 0 ? firstGroupSize : firstGroupSize + 1;
     auto selection = vector<vector<int>>(populationSize);
-    uniform_int_distribution<> distribution(0, populationSize);
+    auto firstSelectionGroup = vector<vector<int>>(firstGroupSize);
+    auto secondSelectionGroup = vector<vector<int>>(secondGroupSize);
+    uniform_int_distribution<> firstGroupDistribution(0, firstGroupSize-1);
+    uniform_int_distribution<> secondGroupDistribution(0, secondGroupSize-1);
     int selectionIndex = 0;
     for (int i = 0; i < populationSize; i++) {
-        vector<int> firstIndividual = population[distribution(generator)];
-        vector<int> secondIndividual = population[distribution(generator)];
+        vector<int> firstIndividual = population[firstGroupDistribution(generator)];
+        vector<int> secondIndividual = population[secondGroupDistribution(generator)];
         selection[selectionIndex++] = fitness(graphMatrix, firstIndividual) > fitness(graphMatrix, secondIndividual) ? firstIndividual : secondIndividual;
     }
     return selection;
@@ -132,7 +152,7 @@ vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix,
 
 bool isLastGeneration(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
      static long generation = 1;
-     return generation++ ==  population.size() == 1 || generation == 10;
+     return generation++ == 10;
 }
 
 bool isPopulationFitnessSatysfying(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population){
@@ -151,16 +171,18 @@ bool isPopulationFitnessSatysfying(const vector<vector<bool>> &graphMatrix, cons
     return bestPopulationFitness >= baseFitness;
 }
 
-vector<vector<int>> midCrossover(vector<vector<int>>& population){
+vector<vector<int>> onePointCrossover(const vector<vector<int>>& population){
     const long populationSize = population.size();
-    const long genomeSize = population[0].size();
-    vector<vector<int>> offsprings = vector<vector<int>>(populationSize);
+    const long genotypeSize = population[0].size();
+    auto offsprings = vector<vector<int>>(populationSize);
+    uniform_int_distribution<> distribution(0, genotypeSize-1);
+    const int crossoverPoint = distribution(generator);
     for (int i = 0; i < populationSize; i+=2) {
         const vector<int>& firstParent = population[i];
         const vector<int>& secondParent = population[i+1];
         vector<int> firstOffspring = firstParent;
         vector<int> secondOffspring = secondParent;
-        for (int j = 0; j < genomeSize/2; j++) {
+        for (int j = 0; j < crossoverPoint; j++) {
           firstOffspring[j] = secondParent[j];
           secondOffspring[j] = firstParent[j];
         }
@@ -170,23 +192,22 @@ vector<vector<int>> midCrossover(vector<vector<int>>& population){
     return offsprings;
 }
 
-vector<vector<int>> threePointsCrossover(vector<vector<int>>& population){
+vector<vector<int>> randomPointCrossover(const vector<vector<int>>& population){
     const long populationSize = population.size();
-    const long genomeSize = population[0].size();
-    vector<vector<int>> offsprings = vector<vector<int>>(populationSize);
+    const long genotypeSize = population[0].size();
+    auto offsprings = vector<vector<int>>(populationSize);
+    uniform_real_distribution<> realDistribution(0, 1);
+    const double crossoverChance = realDistribution(generator);
     for (int i = 0; i < populationSize; i+=2) {
         const vector<int>& firstParent = population[i];
         const vector<int>& secondParent = population[i+1];
         vector<int> firstOffspring = firstParent;
         vector<int> secondOffspring = secondParent;
-        int crossPoint = genomeSize/3;
-        for (int j = 0; j < crossPoint; j++) {
-            firstOffspring[j] = secondParent[j];
-            secondOffspring[j] = firstParent[j];
-        }
-        for (int j = crossPoint * 2; j < genomeSize; j++) {
-            firstOffspring[j] = secondParent[j];
-            secondOffspring[j] = firstParent[j];
+        for (int j = 0; j < genotypeSize; j++) {
+            if (crossoverChance > 0.5) {
+                firstOffspring[j] = secondParent[j];
+                secondOffspring[j] = firstParent[j];
+            }
         }
         offsprings[i] = firstOffspring;
         offsprings[i+1] = secondOffspring;
@@ -195,14 +216,14 @@ vector<vector<int>> threePointsCrossover(vector<vector<int>>& population){
 }
 
 vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
-    const long genomeSize = offsprings[0].size();
+    const long genotypeSize = offsprings[0].size();
     const int divisor = lastColor + 1;
     random_device generator;
     uniform_real_distribution<> realDistribution(0, 1);
-    uniform_int_distribution<> distribution(0, genomeSize - 1);
+    uniform_int_distribution<> distribution(0, genotypeSize - 1);
     for (vector<int> & offspring : offsprings) {
         if(realDistribution(generator) <= 0.02){
-            int genomeIndex = distribution(generator);
+            const int genomeIndex = distribution(generator);
             offspring[genomeIndex] = mod(offspring[genomeIndex] + 1, divisor);
         }
     }
@@ -224,16 +245,19 @@ vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
     return offsprings;
 }
 
-vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialGenome, vector<vector<int>> (*crossover)(vector<vector<int>>& population), vector<vector<int>> (*mutation)(vector<vector<int>>& population), bool (*termCondition)(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population)) {
-    int generation = 0;
-    vector<vector<int>> population = initializePopulation(initialGenome);
+vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialGenotype, vector<vector<int>> (*crossover)(const vector<vector<int>>& population), vector<vector<int>> (*mutation)(vector<vector<int>>& population), bool (*termCondition)(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population)) {
+    vector<vector<int>> population = elitePopulation(graphMatrix, initialGenotype);
+    int generation = 1;
     while(!termCondition(graphMatrix, population)) {
+        cout<<"Generation: "<<generation<<endl;
+        for(const auto& individual: population){
+            printColors(individual);
+        }
       auto selection = tournamentSelection(graphMatrix, population);
       auto offsprings = crossover(selection);
       const auto mutatedOffsprings = mutation(offsprings);
-      cout<<"Generation: "<<generation<<endl;
       population = mutatedOffsprings;
-      generation++;
+        generation++;
     }
     return population;
 }
@@ -249,12 +273,11 @@ int main(const int argc, char *argv[]) {
         cerr << "Failed opening algorithm data file";
         return -1;
     }
-
     const vector<vector<bool>> graphMatrix = readMatrix(f);
     const auto colors = vector(graphMatrix.size(), 0);
 
-    vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, midCrossover, allPointsMutation, isLastGeneration);
-    int solutionUniqueColors = 0;
+    vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, onePointCrossover, allPointsMutation, isLastGeneration);
+    int solutionUniqueColors = INT32_MAX;
     const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     const chrono::steady_clock::time_point end = chrono::steady_clock::now();
