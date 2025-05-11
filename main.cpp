@@ -204,6 +204,7 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
     previousGlobalBestSolutions.reserve(maxIterations);
     long globalBestLoss = loss(graphMatrix, globalBestSolution);
     set tabuNeighbours{globalBestSolution};
+    list tabuCollection{globalBestSolution};
     for (int i = 0; i < maxIterations; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
         const long numberOfNeighbours = neighbours.size();
@@ -226,7 +227,9 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
                 }
             }
             if (tabuNeighbours.size() == tabuSize) {
-                tabuNeighbours.erase(tabuNeighbours.begin());
+                vector<int> element = tabuCollection.front();
+                tabuCollection.pop_front();
+                tabuNeighbours.erase(element);
             }
             tabuNeighbours.insert(bestNeighbour);
             if (bestNeighbourLoss < globalBestLoss) {
@@ -236,9 +239,12 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
             }
             else {
                 if (tabuNeighbours.size() == tabuSize) {
-                    tabuNeighbours.erase(tabuNeighbours.begin());
+                    vector<int> element = tabuCollection.front();
+                    tabuCollection.pop_front();
+                    tabuNeighbours.erase(element);
                 }
                 tabuNeighbours.insert(globalBestSolution);
+                tabuCollection.push_back(globalBestSolution);
                 globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
                 globalBestLoss = loss(graphMatrix, globalBestSolution);
                 previousGlobalBestSolutions.pop_back();
@@ -246,9 +252,12 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
         }
         else {
             if (tabuNeighbours.size() == tabuSize) {
-                tabuNeighbours.erase(tabuNeighbours.begin());
+                vector<int> element = tabuCollection.front();
+                tabuCollection.pop_front();
+                tabuNeighbours.erase(element);
             }
             tabuNeighbours.insert(globalBestSolution);
+            tabuCollection.push_back(globalBestSolution);
             globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
             globalBestLoss = loss(graphMatrix, globalBestSolution);
             previousGlobalBestSolutions.pop_back();
@@ -258,11 +267,11 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
 }
 
 double standardTemperature(const int k) {
-    return 100.0/k;
+    return 1000.0/k;
 }
 
 double logTemperature(const int k) {
-    return 100.0/log(k);
+    return 1000.0/log(k);
 }
 
 vector<int> simulatedAnnealingAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, double (*temperature)(int k)) {

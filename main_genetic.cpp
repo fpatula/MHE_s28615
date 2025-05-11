@@ -259,8 +259,13 @@ vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
     uniform_int_distribution<> distribution(0, genotypeSize - 1);
     for (vector<int> & offspring : offsprings) {
         if(realDistribution(generator) <= 0.02){
-            const int genomeIndex = distribution(generator);
-            offspring[genomeIndex] = mod(offspring[genomeIndex] + 1, divisor);
+            const int genotypeIndex = distribution(generator);
+            if (realDistribution(generator) < 0.5) {
+                offspring[genotypeIndex] = mod(offspring[genotypeIndex] + 1, divisor);
+            }
+            else {
+                offspring[genotypeIndex] = mod(offspring[genotypeIndex] - 1, divisor);
+            }
         }
     }
     return offsprings;
@@ -273,7 +278,12 @@ vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
     for (vector<int> & offspring : offsprings) {
       for (int j = 0; j < genotypeSize; j++) {
           if(realDistribution(generator) <= 0.01){
-              offspring[j] = mod(offspring[j] + 1, divisor);
+              if (realDistribution(generator) < 0.5) {
+                offspring[j] = mod(offspring[j] + 1, divisor);
+              }
+              else {
+                 offspring[j] = mod(offspring[j] - 1, divisor);
+              }
           }
       }
     }
@@ -354,6 +364,8 @@ int main(const int argc, char *argv[]) {
         default:
             cerr<<"Unknown mutation name"<<endl;
     }
+
+    cout<<lastColor<<endl;
     const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, crossover, mutation, endCondition);
