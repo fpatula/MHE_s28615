@@ -207,8 +207,7 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
     for (int i = 0; i < maxIterations; i++) {
         vector<vector<int>> neighbours = findNeighbours(globalBestSolution);
         const long numberOfNeighbours = neighbours.size();
-        vector<vector<int>> allowedNeighbours{};
-        allowedNeighbours.reserve(numberOfNeighbours);
+        auto allowedNeighbours = vector<vector<int>>(numberOfNeighbours);
         for (int j = 0; j < numberOfNeighbours; j++) {
             if (const auto& neighbour = neighbours[j]; !tabuNeighbours.count(neighbour)) {
                 allowedNeighbours.push_back(neighbour);
