@@ -30,8 +30,8 @@ unordered_map<string,END_CONDITION> const conditionMap = { {"last_generation",LA
 
 
 long lastColor;
-long maxPopulationSize = 8;
-long lastGeneration = 12;
+long maxPopulationSize = 16;
+long lastGeneration = 10;
 
 random_device generator;
 
@@ -156,19 +156,32 @@ vector<vector<int>> elitePopulation(const vector<vector<bool>> &graphMatrix, con
     return elitePopulation;
 }
 
-vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
+vector<vector<int>> tournamentSingleSelection(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
     const int populationSize = population.size();
     const int firstGroupSize = populationSize/2;
     const int secondGroupSize = populationSize%2 == 0 ? firstGroupSize : firstGroupSize + 1;
     auto selection = vector<vector<int>>(populationSize);
     auto firstSelectionGroup = vector<vector<int>>(firstGroupSize);
     auto secondSelectionGroup = vector<vector<int>>(secondGroupSize);
-    uniform_int_distribution<> firstGroupDistribution(0, firstGroupSize-1);
-    uniform_int_distribution<> secondGroupDistribution(0, secondGroupSize-1);
+    uniform_int_distribution firstGroupDistribution(0, firstGroupSize-1);
+    uniform_int_distribution secondGroupDistribution(0, secondGroupSize-1);
     int selectionIndex = 0;
     for (int i = 0; i < populationSize; i++) {
         vector<int> firstIndividual = population[firstGroupDistribution(generator)];
         vector<int> secondIndividual = population[secondGroupDistribution(generator)];
+        selection[selectionIndex++] = fitness(graphMatrix, firstIndividual) > fitness(graphMatrix, secondIndividual) ? firstIndividual : secondIndividual;
+    }
+    return selection;
+}
+
+vector<vector<int>> tournamentSelection(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
+    const int populationSize = population.size();
+    auto selection = vector<vector<int>>(populationSize);
+    uniform_int_distribution distribution(0, populationSize-1);
+    int selectionIndex = 0;
+    for (int i = 0; i < populationSize; i++) {
+        vector<int> firstIndividual = population[distribution(generator)];
+        vector<int> secondIndividual = population[distribution(generator)];
         selection[selectionIndex++] = fitness(graphMatrix, firstIndividual) > fitness(graphMatrix, secondIndividual) ? firstIndividual : secondIndividual;
     }
     return selection;
@@ -254,11 +267,11 @@ vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
 }
 
 vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
-    const long genomeSize = offsprings[0].size();
+    const long genotypeSize = offsprings[0].size();
     const int divisor = lastColor + 1;
     uniform_real_distribution<> realDistribution(0, 1);
     for (vector<int> & offspring : offsprings) {
-      for (int j = 0; j < genomeSize; j++) {
+      for (int j = 0; j < genotypeSize; j++) {
           if(realDistribution(generator) <= 0.01){
               offspring[j] = mod(offspring[j] + 1, divisor);
           }
@@ -339,19 +352,24 @@ int main(const int argc, char *argv[]) {
         default:
             cerr<<"Unknown mutation name"<<endl;
     }
-
+    const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, crossover, mutation, endCondition);
     int solutionUniqueColors = INT32_MAX;
-    const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     const chrono::steady_clock::time_point end = chrono::steady_clock::now();
     cout<<"Found best population: "<<endl;
+    vector<int> bestIndividual;
+
     for(const auto& individual: solution){
         printColors(individual);
-        int uniqueColors = getUniqueColorsNumber(individual);
-        solutionUniqueColors = uniqueColors < solutionUniqueColors ? uniqueColors : solutionUniqueColors;
+        if (const int uniqueColors = getUniqueColorsNumber(individual); uniqueColors < solutionUniqueColors) {
+            solutionUniqueColors = uniqueColors;
+            bestIndividual = individual;
+        }
     }
+    cout<<"Found best individual: "<<endl;
+    printColors(bestIndividual);
     cout<<"Number of unique colors: "<<solutionUniqueColors<<endl;
     cout<<"Execution time (ms): " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
     return 0;
