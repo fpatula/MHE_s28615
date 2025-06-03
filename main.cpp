@@ -198,6 +198,23 @@ vector<int> hillClimbingStochasticAlgorithm(const vector<vector<bool>> &graphMat
     return globalBestSolution;
 }
 
+void updateTabuList(const int tabuSize, const vector<int>& solution, set<vector<int>>& tabuNeighbours, list<vector<int>>& tabuCollection) {
+    if (tabuNeighbours.size() == tabuSize) {
+        const vector<int> element = tabuCollection.front();
+        tabuCollection.pop_front();
+        tabuNeighbours.erase(element);
+    }
+    tabuNeighbours.insert(solution);
+    tabuCollection.push_back(solution);
+}
+
+void getToPreviousBestSolution(const vector<vector<bool>> &graphMatrix, const int tabuSize, vector<int> &globalBestSolution, vector<vector<int>>& previousGlobalBestSolutions, long &globalBestLoss, set<vector<int>>& tabuNeighbours, list<vector<int>>& tabuCollection) {
+    updateTabuList(tabuSize, globalBestSolution, tabuNeighbours, tabuCollection);
+    globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
+    globalBestLoss = loss(graphMatrix, globalBestSolution);
+    previousGlobalBestSolutions.pop_back();
+}
+
 vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, const int tabuSize = 100) {
     vector<int> globalBestSolution = initialColors;
     vector<vector<int>> previousGlobalBestSolutions{globalBestSolution};
@@ -226,41 +243,20 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
                     bestNeighbourLoss = neighbourLoss;
                 }
             }
-            if (tabuNeighbours.size() == tabuSize) {
-                vector<int> element = tabuCollection.front();
-                tabuCollection.pop_front();
-                tabuNeighbours.erase(element);
-            }
-            tabuNeighbours.insert(bestNeighbour);
+            updateTabuList(tabuSize, bestNeighbour, tabuNeighbours, tabuCollection);
             if (bestNeighbourLoss < globalBestLoss) {
                 previousGlobalBestSolutions.push_back(globalBestSolution);
                 globalBestSolution = bestNeighbour;
                 globalBestLoss = bestNeighbourLoss;
             }
             else {
-                if (tabuNeighbours.size() == tabuSize) {
-                    vector<int> element = tabuCollection.front();
-                    tabuCollection.pop_front();
-                    tabuNeighbours.erase(element);
-                }
-                tabuNeighbours.insert(globalBestSolution);
-                tabuCollection.push_back(globalBestSolution);
-                globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
-                globalBestLoss = loss(graphMatrix, globalBestSolution);
-                previousGlobalBestSolutions.pop_back();
+                getToPreviousBestSolution(graphMatrix, tabuSize, globalBestSolution, previousGlobalBestSolutions, globalBestLoss,
+                                          tabuNeighbours, tabuCollection);
             }
         }
         else {
-            if (tabuNeighbours.size() == tabuSize) {
-                vector<int> element = tabuCollection.front();
-                tabuCollection.pop_front();
-                tabuNeighbours.erase(element);
-            }
-            tabuNeighbours.insert(globalBestSolution);
-            tabuCollection.push_back(globalBestSolution);
-            globalBestSolution = previousGlobalBestSolutions[previousGlobalBestSolutions.size()-1];
-            globalBestLoss = loss(graphMatrix, globalBestSolution);
-            previousGlobalBestSolutions.pop_back();
+            getToPreviousBestSolution(graphMatrix, tabuSize, globalBestSolution, previousGlobalBestSolutions, globalBestLoss,
+                                                      tabuNeighbours, tabuCollection);
         }
     }
     return globalBestSolution;

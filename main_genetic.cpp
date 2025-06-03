@@ -117,7 +117,7 @@ long fitness(const vector<vector<bool>> &graphMatrix, const vector<int>& colors)
 }
 
 vector<long> calculatePopulationFitness(const vector<vector<bool>> &graphMatrix, const vector<vector<int>>& population) {
-    auto populationFitness = vector<long>(graphMatrix.size());
+    auto populationFitness = vector<long>(population.size());
     const int populationSize = population.size();
     for (int i = 0; i < populationSize; i++) {
         populationFitness[i] = fitness(graphMatrix, population[i]);
@@ -125,12 +125,13 @@ vector<long> calculatePopulationFitness(const vector<vector<bool>> &graphMatrix,
     return populationFitness;
 }
 
-vector<int> generateRandomSolution(vector<int> colors) {
-    for (int & color : colors) {
-        uniform_int_distribution<> distribution(0, lastColor);
+vector<int> generateRandomSolution(const vector<int>& colors) {
+    vector<int> newSolution = colors;
+    uniform_int_distribution<> distribution(0, lastColor);
+    for (int & color : newSolution) {
         color = distribution(generator);
     }
-    return colors;
+    return newSolution;
 }
 
 vector<vector<int>> initializePopulation(const vector<int>& initialGenotype){
@@ -214,7 +215,7 @@ vector<vector<int>> onePointCrossover(const vector<vector<int>>& population){
     auto offsprings = vector<vector<int>>(populationSize);
     uniform_int_distribution<> distribution(0, genotypeSize-1);
     const int crossoverPoint = distribution(generator);
-    for (int i = 0; i < populationSize; i+=2) {
+    for (int i = 0; i + 1 < populationSize; i+=2) {
         const vector<int>& firstParent = population[i];
         const vector<int>& secondParent = population[i+1];
         vector<int> firstOffspring = firstParent;
@@ -258,7 +259,7 @@ vector<vector<int>> randomPointMutation(vector<vector<int>>& offsprings){
     uniform_real_distribution<> realDistribution(0, 1);
     uniform_int_distribution<> distribution(0, genotypeSize - 1);
     for (vector<int> & offspring : offsprings) {
-        if(realDistribution(generator) <= 0.02){
+        if(realDistribution(generator) <= 0.1){
             const int genotypeIndex = distribution(generator);
             if (realDistribution(generator) < 0.5) {
                 offspring[genotypeIndex] = mod(offspring[genotypeIndex] + 1, divisor);
@@ -277,7 +278,7 @@ vector<vector<int>> allPointsMutation(vector<vector<int>>& offsprings){
     uniform_real_distribution<> realDistribution(0, 1);
     for (vector<int> & offspring : offsprings) {
       for (int j = 0; j < genotypeSize; j++) {
-          if(realDistribution(generator) <= 0.01){
+          if(realDistribution(generator) <= 0.05){
               if (realDistribution(generator) < 0.5) {
                 offspring[j] = mod(offspring[j] + 1, divisor);
               }
@@ -298,10 +299,10 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
         for(const auto& individual: population){
             printColors(individual);
         }*/
-      auto selection = tournamentSelection(graphMatrix, population);
-      auto offsprings = crossover(selection);
-      const auto mutatedOffsprings = mutation(offsprings);
-      population = mutatedOffsprings;
+        auto selection = tournamentSelection(graphMatrix, population);
+        auto offsprings = crossover(selection);
+        const auto mutatedOffsprings = mutation(offsprings);
+        population = mutatedOffsprings;
         generation++;
     }
     return population;
@@ -365,7 +366,6 @@ int main(const int argc, char *argv[]) {
             cerr<<"Unknown mutation name"<<endl;
     }
 
-    cout<<lastColor<<endl;
     const chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     vector<vector<int>> solution = geneticAlgorithm(graphMatrix, colors, crossover, mutation, endCondition);
