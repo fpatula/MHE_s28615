@@ -310,7 +310,7 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
 
 int main(const int argc, char *argv[]) {
     if (argc < 6) {
-        cerr << "You must provide algorithm data file name and algorithm name";
+        cerr << "You must provide algorithm data file name and 4 params";
         return -1;
     }
     const auto filePath = argv[1];

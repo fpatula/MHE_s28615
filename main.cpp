@@ -8,6 +8,7 @@
 using namespace std;
 
 long lastColor;
+static constexpr double temperature_x = 1000.0;
 
 enum ALGORITHMS {
     FULL_SEARCH,
@@ -263,11 +264,11 @@ vector<int> tabuAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<
 }
 
 double standardTemperature(const int k) {
-    return 1000.0/k;
+    return temperature_x/k;
 }
 
 double logTemperature(const int k) {
-    return 1000.0/log(k);
+    return temperature_x/log(k);
 }
 
 vector<int> simulatedAnnealingAlgorithm(const vector<vector<bool>> &graphMatrix, const vector<int> &initialColors, const int maxIterations, double (*temperature)(int k)) {

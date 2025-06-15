@@ -266,8 +266,8 @@ vector<vector<int>> geneticAlgorithm(const vector<vector<bool>> &graphMatrix, co
 }
 
 int main(const int argc, char *argv[]) {
-    if (argc < 6) {
-        cerr << "You must provide algorithm data file name and algorithm name";
+    if (argc < 7) {
+        cerr << "You must provide algorithm data file name and 5 params";
         return -1;
     }
     const auto filePath = argv[1];
@@ -275,6 +275,7 @@ int main(const int argc, char *argv[]) {
     const auto migrationRate = atoi(argv[3]);
     const auto migrationGap = atoi(argv[4]);
     lastGeneration = atoi(argv[5]);
+    maxPopulationSize = atoi(argv[6]);
 
     ifstream f(filePath);
     if (!f.is_open()) {
