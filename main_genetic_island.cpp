@@ -18,7 +18,7 @@ condition_variable cv;
 
 long lastColor;
 long maxPopulationSize = 16;
-long lastGeneration = 10;
+long lastGeneration = 100;
 int populatedIslands = 0;
 int islandsNumber;
 

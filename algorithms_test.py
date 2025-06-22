@@ -54,7 +54,7 @@ def genetic_algorithm_test():
                 migration_gap = 3 + k
                 for l in range(0, 3):
                     islands_number = 2 + l
-                    for n in range(0, 5):
+                    for n in range(0, 10):
                         max_population_size = 8 + n * 2
                         run_genetic_algorithm(genetic_results,  islands_number, migration_rate, migration_gap, last_generation, max_population_size)
     genetic_results.sort(key=lambda x: (x['colors'], x['execution_time']))
