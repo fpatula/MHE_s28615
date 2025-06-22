@@ -307,7 +307,6 @@ int main(const int argc, char *argv[]) {
 
     for(const auto&[first, second]: populations){
         for(const auto& individual: second){
-            printColors(individual);
             if (const int uniqueColors = getUniqueColorsNumber(individual); uniqueColors < solutionUniqueColors) {
                 solutionUniqueColors = uniqueColors;
                 bestIndividual = individual;

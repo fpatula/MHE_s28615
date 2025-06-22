@@ -31,7 +31,7 @@ unordered_map<string,END_CONDITION> const conditionMap = { {"last_generation",LA
 
 long lastColor;
 long maxPopulationSize = 16;
-long lastGeneration = 10;
+long lastGeneration = 50;
 
 random_device generator;
 
